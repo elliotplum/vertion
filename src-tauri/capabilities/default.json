@@ -6,6 +6,15 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "dialog:allow-open"
+    "dialog:allow-open",
+    "fs:default",
+    "fs:read-all",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        "$HOME/**",
+        "$AUDIO/**"
+      ]
+    }
   ]
 }

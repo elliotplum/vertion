@@ -7,9 +7,9 @@ pub struct MediaFile {
     pub name: String,
     pub path: String,
     pub file_type: String,
-    pub size: u64,          // size in bytes
-    pub modified: u64,      // unix timestamp seconds
-    pub created: u64,       // unix timestamp seconds
+    pub size: u64,
+    pub modified: u64,
+    pub created: u64,
 }
 
 #[tauri::command]
@@ -31,7 +31,6 @@ fn scan_bounce_folder(folder_path: String) -> Result<Vec<MediaFile>, String> {
                     _ => continue,
                 };
 
-                // Extract file metadata
                 let metadata = entry.metadata().ok();
                 let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
                 
@@ -67,6 +66,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init()) // This enables the FS plugin
         .invoke_handler(tauri::generate_handler![
             scan_bounce_folder
         ])
