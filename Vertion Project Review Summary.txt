@@ -1,0 +1,368 @@
+VERTION - PROJECT REVIEW & PRODUCT DIRECTION SUMMARY
+Date: 17 Aug 2026
+
+=================================================
+CURRENT PRODUCT ASSESSMENT
+=================================================
+
+Initial assumption:
+- Better Ableton project library / MakiD alternative.
+
+Current reality:
+- The application is already evolving beyond a file browser.
+- Vertion is beginning to function as a project intelligence platform for music producers.
+
+Core concept:
+- Understand relationships between Ableton projects, versions, bounces, notes, references and analytics.
+
+Long-term vision:
+- Become an operating system for music production projects.
+
+=================================================
+TECHNICAL FINDINGS
+=================================================
+
+Tech Stack:
+- Tauri
+- Rust backend
+- React frontend
+- TypeScript
+- SQLite (partially implemented)
+
+Positive architectural decisions:
+- Tauri is an excellent choice for a desktop audio/project management tool.
+- Rust will support high-performance scanning and future audio analysis.
+- SQLite is sufficient for large amounts of project metadata.
+- Future waveform, spectrum and analytics features are achievable without major architectural changes.
+
+Current strengths:
+- Project scanning
+- Bounce discovery
+- Confidence-based project-to-bounce matching
+- Waveform rendering
+- Audio playback
+- Timestamped comments
+- Version-oriented thinking
+
+=================================================
+MOST IMPORTANT OBSERVATION
+=================================================
+
+The scoreAudioAssociation() logic is extremely important.
+
+Although currently used for matching bounces to Ableton projects, it creates the foundation for:
+
+Project
+ -> Versions
+ -> Bounces
+ -> Notes
+ -> Analytics
+ -> References
+ -> Mix Reports
+
+This relationship model may become one of the strongest differentiators of the product.
+
+=================================================
+WAVEFORM ANALYSIS FINDINGS
+=================================================
+
+Original concern:
+- Rekordbox-style coloured waveforms may be too expensive to process.
+
+Assessment:
+- Processing cost is manageable if analysis results are cached.
+
+Suggested progression:
+
+Level 1 (Already implemented)
+- RMS amplitude waveform
+
+Level 2
+- Zoomable waveform
+- Store more waveform points and only render visible sections
+
+Level 3
+- Rekordbox-style frequency colouring
+- Low frequencies = blue
+- Mid frequencies = green
+- High frequencies = red
+
+Important note:
+- Audio analysis should occur once during import/indexing.
+- Results should be stored and reused rather than continuously recalculated.
+
+=================================================
+PRODUCT DIRECTION
+=================================================
+
+What users think they want:
+- Better project organisation.
+
+What the product can become:
+- Project intelligence.
+
+Potential future modules:
+
+1. Library
+- Project browser
+- Search
+- Metadata
+- Tags
+
+2. Version Management
+- Bounce history
+- Version notes
+- Next actions
+
+3. Reference System
+- Reference tracks
+- BPM comparison
+- Key comparison
+- Loudness comparison
+- Frequency comparison
+
+4. Analytics
+- Producer productivity
+- Project completion rates
+- Session activity
+- Genre insights
+
+5. Mix Intelligence
+- Spectrum analysis
+- Reference comparison
+- Mix recommendations
+
+=================================================
+FEATURE PRIORITIES
+=================================================
+
+Highest priority:
+
+1. Project-level notes
+2. Version notes
+3. Random project rediscovery
+4. Cover art
+5. Reference tracks
+6. Enhanced waveform analysis
+7. Producer analytics
+
+Reasoning:
+
+Notes and project knowledge help every producer immediately.
+
+Advanced analysis features become significantly more valuable once the project knowledge layer exists.
+
+=================================================
+PROJECT ENTITY MODEL
+=================================================
+
+Current mindset:
+- Ableton Project
+
+Recommended mindset:
+- Track
+
+Future structure:
+
+Track
+ ├ Versions
+ ├ Bounces
+ ├ Notes
+ ├ Cover Art
+ ├ References
+ ├ Analytics
+ └ Release History
+
+The track should become the central object in the application.
+
+=================================================
+MAIN PAGE CONCEPT
+=================================================
+
+Purpose:
+- Explore and rediscover projects.
+
+Show only essential information:
+
+- Project name
+- Latest bounce
+- Last modified date
+- Created date
+- Total size
+- General notes
+- Cover art
+
+Hide detail until navigating deeper.
+
+TAB should open:
+- Project History View
+
+=================================================
+PROJECT HISTORY PAGE
+=================================================
+
+Purpose:
+- Deep inspection of a single track/project.
+
+Potential content:
+
+- Versions
+- Bounce history
+- Comments
+- Waveforms
+- Reference tracks
+- Mix analytics
+- Progress notes
+
+=================================================
+RANDOM PROJECT FEATURE
+=================================================
+
+One of the most promising ideas discussed.
+
+Purpose:
+- Help users rediscover forgotten music.
+
+Possible modes:
+
+- Random project
+- Abandoned project
+- Unfinished project
+- Oldest project
+- Project with most versions
+
+Potential UI:
+
+Rediscover Project
+
+Project Name
+Last Opened: 217 days ago
+Latest Version: v7
+
+This feels unique and aligned with real producer behaviour.
+
+=================================================
+COVER ART
+=================================================
+
+Benefits:
+
+- Visual recognition
+- Faster navigation
+- More polished experience
+
+Potential sources:
+
+- Manual upload
+- Release artwork
+- Custom image
+
+=================================================
+NOTES SYSTEM
+=================================================
+
+Project Notes:
+
+Examples:
+- References
+- Release goals
+- Label ideas
+- General reminders
+
+Version Notes:
+
+Examples:
+- What changed
+- Why it changed
+- What needs improving next
+
+Suggested fields:
+
+Version Notes
+Next Actions
+Review Comments
+
+=================================================
+CODEBASE REFACTORING PRIORITIES
+=================================================
+
+Current issue:
+- App.tsx has become too large.
+- Difficult to understand.
+- Difficult to maintain.
+
+Recommended structure:
+
+src/
+├── components/
+│   ├── InteractiveWaveform.tsx
+│   ├── ProjectCard.tsx
+│   ├── ProjectExplorer.tsx
+│   └── ProjectHistory.tsx
+│
+├── hooks/
+│   ├── useAudioComments.ts
+│   └── useProjectGrouping.ts
+│
+├── services/
+│   └── scannerService.ts
+│
+├── utils/
+│   ├── audioAnalysis.ts
+│   ├── projectGrouping.ts
+│   └── formatters.ts
+│
+├── types/
+│   └── index.ts
+│
+└── App.tsx
+
+=================================================
+COMMENTING STRATEGY
+=================================================
+
+Avoid comments that explain obvious code.
+
+Bad:
+// Set loading to true
+
+Good:
+// We score every bounce against every project and keep the highest confidence match.
+// This helps automatically associate exported audio with its originating Ableton session.
+
+Comments should explain:
+- Why something exists
+- Business logic
+- Design decisions
+- Future intent
+
+=================================================
+RECOMMENDED NEXT ACTIONS
+=================================================
+
+1. Refactor App.tsx into components.
+2. Move interfaces into /types.
+3. Move utility functions into /utils.
+4. Add comments throughout the codebase.
+5. Create ARCHITECTURE.md.
+6. Implement project-level notes.
+7. Implement cover art.
+8. Build Random Project discovery.
+9. Add reference track support.
+10. Expand analytics and waveform capabilities.
+
+=================================================
+FINAL CONCLUSION
+=================================================
+
+Do not think of Vertion as a better file browser.
+
+Think of Vertion as:
+
+'A platform that helps producers organise, analyse, understand and improve their music projects.'
+
+The biggest opportunity is not waveforms.
+
+The biggest opportunity is creating a system that understands the relationship between projects, versions, bounces, references, notes and analytics.
+
+That foundation already exists in the current codebase.
