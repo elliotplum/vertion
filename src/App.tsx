@@ -1,10 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { readFile } from '@tauri-apps/plugin-fs';
 import { open } from '@tauri-apps/plugin-dialog';
+import { ProjectDashboard } from './ProjectDashboard';
+import { useDashboardProjects, type ImportedProject } from './hooks/useDashboardProjects';
+import type { Project } from './Types';
 import './App.css';
 
-type AppView = 'explorer' | 'project-history' | 'universal-recent';
+type AppView = 'explorer' | 'dashboard' | 'project-history' | 'universal-recent';
+
+const DASHBOARD_VIEWS: AppView[] = ['dashboard', 'explorer', 'project-history'];
 
 interface MediaFile {
   name: string;
@@ -13,6 +19,63 @@ interface MediaFile {
   size: number;
   modified: number;
   created: number;
+}
+
+function getProjectFolder(filePath: string): string {
+  const pathParts = filePath.split(/[/\\]/);
+  const parentIndex = pathParts.length - 2;
+  if (pathParts[parentIndex]?.toLowerCase() === 'backup') {
+    return pathParts[parentIndex - 1] || 'Other Files';
+  }
+  return pathParts[parentIndex] || 'Other Files';
+}
+
+function getProjectDirectory(filePath: string): string {
+  return filePath.substring(0, Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\')));
+}
+
+function isBackupProjectFile(filePath: string): boolean {
+  const pathParts = filePath.split(/[/\\]/).filter(Boolean);
+  return pathParts[pathParts.length - 2]?.toLowerCase() === 'backup';
+}
+
+function buildImportedProjects(files: MediaFile[]): ImportedProject[] {
+  const importedByPath = new Map<string, ImportedProject>();
+
+  files
+    .filter((file) => file.file_type === 'project' && !isBackupProjectFile(file.path))
+    .forEach((file) => {
+      const path = getProjectDirectory(file.path);
+      if (!path) return;
+
+      const modifiedAt = file.modified ? file.modified * 1000 : undefined;
+      const createdAt = file.created ? file.created * 1000 : undefined;
+      const existing = importedByPath.get(path);
+
+      if (!existing) {
+        importedByPath.set(path, {
+          id: `scan:${path}`,
+          name: getProjectFolder(file.path),
+          path,
+          lastModified: modifiedAt ? new Date(modifiedAt).toLocaleString() : 'Unknown',
+          lastModifiedAt: modifiedAt,
+          createdAt,
+          fileSize: `${file.size} bytes`,
+        });
+        return;
+      }
+
+      if (modifiedAt && (!existing.lastModifiedAt || modifiedAt > existing.lastModifiedAt)) {
+        existing.lastModified = new Date(modifiedAt).toLocaleString();
+        existing.lastModifiedAt = modifiedAt;
+        existing.fileSize = `${file.size} bytes`;
+      }
+      if (createdAt && (!existing.createdAt || createdAt < existing.createdAt)) {
+        existing.createdAt = createdAt;
+      }
+    });
+
+  return Array.from(importedByPath.values());
 }
 
 interface ScoredAudioFile {
@@ -46,6 +109,16 @@ interface CommentItem {
   timeStr: string;
   text: string;
 }
+
+interface WaveformData {
+  bars: { top: number; bottom: number }[];
+  duration: number;
+}
+
+const waveformCache = new Map<string, Promise<WaveformData>>();
+const audioFileCache = new Map<string, Promise<Uint8Array>>();
+let activeAudioElement: HTMLAudioElement | null = null;
+let lastAudioElement: HTMLAudioElement | null = null;
 
 // Compute RMS (Root Mean Square) waveform from AudioBuffer for accurate visualization
 function computeRmsWaveform(audioBuffer: AudioBuffer, numBars: number = 120): number[] {
@@ -87,12 +160,16 @@ function InteractiveWaveform({
   audioPath, 
   active, 
   comments, 
-  onAddComment 
+  onAddComment,
+  loadWaveform,
+  preloadOnly = false,
 }: { 
   audioPath: string; 
   active?: boolean;
   comments: CommentItem[];
   onAddComment: (timestampSecs: number, text: string) => void;
+  loadWaveform: boolean;
+  preloadOnly?: boolean;
 }) {
   const [selectedTimeSecs, setSelectedTimeSecs] = useState<number>(0);
   const [totalDurationSecs, setTotalDurationSecs] = useState<number>(0);
@@ -105,10 +182,10 @@ function InteractiveWaveform({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
 
-  // Load audio file securely via Tauri FS plugin into a Blob URL and compute RMS waveform
+  // Loading is opt-in from the selected project, so unselected projects do no audio work.
   useEffect(() => {
     let isMounted = true;
-    if (!audioPath) return;
+    if (!audioPath || !loadWaveform) return;
 
     const loadAudio = async () => {
       setIsLoading(true);
@@ -117,50 +194,61 @@ function InteractiveWaveform({
       setBars([]);
 
       try {
-        const contents = await readFile(audioPath);
-        const blob = new Blob([contents], { type: 'audio/mpeg' });
-        
-        if (blobUrlRef.current) {
-          URL.revokeObjectURL(blobUrlRef.current);
+        let filePromise = audioFileCache.get(audioPath);
+        if (!filePromise) {
+          filePromise = readFile(audioPath);
+          audioFileCache.set(audioPath, filePromise);
         }
-        
-        const url = URL.createObjectURL(blob);
-        blobUrlRef.current = url;
+        const contents = await filePromise;
+        const audioBuffer = new ArrayBuffer(contents.byteLength);
+        new Uint8Array(audioBuffer).set(contents);
+        if (!preloadOnly) {
+          const blob = new Blob([audioBuffer], { type: 'audio/mpeg' });
 
-        if (audioRef.current && isMounted) {
-          audioRef.current.src = url;
-          audioRef.current.load();
+          if (blobUrlRef.current) {
+            URL.revokeObjectURL(blobUrlRef.current);
+          }
+
+          const url = URL.createObjectURL(blob);
+          blobUrlRef.current = url;
+
+          if (audioRef.current && isMounted) {
+            audioRef.current.src = url;
+            audioRef.current.load();
+          }
         }
 
-        // Decode audio and compute RMS waveform
-        try {
-          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-          const arrayBuffer = contents.buffer.slice(contents.byteOffset, contents.byteOffset + contents.byteLength);
-          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-          const rmsValues = computeRmsWaveform(audioBuffer, 260);
+        let waveformPromise = waveformCache.get(audioPath);
+        if (!waveformPromise) {
+          waveformPromise = (async () => {
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            try {
+              const decodedAudio = await audioContext.decodeAudioData(audioBuffer.slice(0));
+              const rmsValues = computeRmsWaveform(decodedAudio, 180);
 
-          // Convert RMS values to bar heights
-          if (isMounted) {
-            const computedBars = rmsValues.map((rmsVal) => {
-              const topHeight = Math.max(12, Math.floor(rmsVal * 92));
-              const bottomHeight = Math.max(8, Math.floor(rmsVal * 75));
-              return { top: topHeight, bottom: bottomHeight };
-            });
-            setBars(computedBars);
-          }
-        } catch (decodeErr) {
-          console.warn('Could not decode audio for waveform analysis, using placeholder:', decodeErr);
-          // Fallback: generate placeholder bars if decoding fails
-          if (isMounted) {
-            const placeholderBars = Array.from({ length: 260 }, () => ({
-              top: Math.random() * 80 + 20,
-              bottom: Math.random() * 60 + 15
-            }));
-            setBars(placeholderBars);
-          }
+              return {
+                bars: rmsValues.map((rmsValue) => ({
+                  top: Math.max(12, Math.floor(rmsValue * 92)),
+                  bottom: Math.max(8, Math.floor(rmsValue * 75)),
+                })),
+                duration: decodedAudio.duration,
+              };
+            } finally {
+              await audioContext.close();
+            }
+          })();
+          waveformCache.set(audioPath, waveformPromise);
+        }
+
+        const waveform = await waveformPromise;
+        if (isMounted && !preloadOnly) {
+          setBars(waveform.bars);
+          setTotalDurationSecs(waveform.duration);
         }
       } catch (err: any) {
         console.error('Failed to load audio file:', err);
+        audioFileCache.delete(audioPath);
+        waveformCache.delete(audioPath);
         if (isMounted) {
           setErrorMsg(err.message || 'Could not load audio file');
         }
@@ -173,21 +261,30 @@ function InteractiveWaveform({
 
     return () => {
       isMounted = false;
+      if (activeAudioElement === audioRef.current) {
+        audioRef.current?.pause();
+        activeAudioElement = null;
+      }
+      if (lastAudioElement === audioRef.current) lastAudioElement = null;
       if (blobUrlRef.current) {
         URL.revokeObjectURL(blobUrlRef.current);
       }
     };
-  }, [audioPath]);
+  }, [audioPath, loadWaveform, preloadOnly]);
 
   const togglePlayPause = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!audioRef.current || isLoading) return;
 
+    lastAudioElement = audioRef.current;
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.currentTime = selectedTimeSecs;
+      if (activeAudioElement && activeAudioElement !== audioRef.current) {
+        activeAudioElement.pause();
+      }
+      activeAudioElement = audioRef.current;
       audioRef.current.play().then(() => {
         setIsPlaying(true);
       }).catch(err => {
@@ -213,6 +310,7 @@ function InteractiveWaveform({
     const durationToUse = totalDurationSecs > 0 ? totalDurationSecs : (audioRef.current?.duration || 1);
     const newSecs = percentage * durationToUse;
     
+    lastAudioElement = audioRef.current;
     setSelectedTimeSecs(newSecs);
     if (audioRef.current) {
       audioRef.current.currentTime = newSecs;
@@ -229,24 +327,34 @@ function InteractiveWaveform({
   const durationToCalc = totalDurationSecs > 0 ? totalDurationSecs : (audioRef.current?.duration || 1);
   const playheadPercent = durationToCalc > 0 ? (selectedTimeSecs / durationToCalc) * 100 : 0;
 
+  if (preloadOnly) return null;
+
   return (
     <div className="waveform-widget-container">
       <audio 
         ref={audioRef}
+        onPlay={() => setIsPlaying(true)}
         onTimeUpdate={() => {
           if (audioRef.current) {
             setSelectedTimeSecs(audioRef.current.currentTime);
           }
+        }}
+        onPause={() => {
+          setIsPlaying(false);
+          if (activeAudioElement === audioRef.current) activeAudioElement = null;
         }}
         onLoadedMetadata={() => {
           if (audioRef.current && !isNaN(audioRef.current.duration)) {
             setTotalDurationSecs(audioRef.current.duration);
           }
         }}
-        onEnded={() => setIsPlaying(false)}
+        onEnded={() => {
+          setIsPlaying(false);
+          if (activeAudioElement === audioRef.current) activeAudioElement = null;
+        }}
       />
 
-      <div 
+      <div
         className={`waveform-wrapper-large ${active ? 'active' : 'archived'}`}
         onClick={handleWaveformClick}
         title="Click anywhere on the waveform to seek"
@@ -313,6 +421,7 @@ function InteractiveWaveform({
               key={c.id} 
               className="comment-pill" 
               onClick={() => {
+                lastAudioElement = audioRef.current;
                 setSelectedTimeSecs(c.timestampSecs);
                 if (audioRef.current) audioRef.current.currentTime = c.timestampSecs;
               }}
@@ -328,9 +437,10 @@ function InteractiveWaveform({
 }
 
 function App() {
+  const [isMaximized, setIsMaximized] = useState(false);
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(false);
-  const [currentView, setCurrentView] = useState<AppView>('explorer');
+  const [currentView, setCurrentView] = useState<AppView>('dashboard');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const [scannedPath, setScannedPath] = useState<string | null>(null);
@@ -341,21 +451,66 @@ function App() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'size' | 'modified'>('modified');
+  const dashboardProjects = useDashboardProjects();
+
+  useEffect(() => {
+    const appWindow = getCurrentWindow();
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+
+    const syncMaximizedState = async () => {
+      try {
+        const maximized = await appWindow.isMaximized();
+        if (!cancelled) setIsMaximized(maximized);
+      } catch {
+        // The window state is only available in the Tauri runtime.
+      }
+    };
+
+    void syncMaximizedState();
+    void appWindow.onResized(() => void syncMaximizedState()).then((dispose) => {
+      if (cancelled) dispose();
+      else unlisten = dispose;
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Tab' && !(e.target instanceof HTMLInputElement)) {
+      const target = e.target as HTMLElement;
+      const isFormControl = target instanceof HTMLInputElement
+        || target instanceof HTMLSelectElement
+        || target instanceof HTMLTextAreaElement
+        || target.isContentEditable;
+
+      if (e.key === 'Tab' && !isFormControl) {
         e.preventDefault();
-        if (selectedProjectId) {
-          setCurrentView(prev => (prev === 'project-history' ? 'explorer' : 'project-history'));
+        const currentIndex = DASHBOARD_VIEWS.indexOf(currentView);
+        const direction = e.shiftKey ? -1 : 1;
+        const nextIndex = (currentIndex + direction + DASHBOARD_VIEWS.length) % DASHBOARD_VIEWS.length;
+        setCurrentView(DASHBOARD_VIEWS[nextIndex]);
+      }
+
+      if (e.code === 'Space' && !isFormControl && lastAudioElement) {
+        e.preventDefault();
+        if (lastAudioElement.paused) {
+          if (activeAudioElement && activeAudioElement !== lastAudioElement) {
+            activeAudioElement.pause();
+          }
+          activeAudioElement = lastAudioElement;
+          lastAudioElement.play().catch(() => undefined);
         } else {
-          setCurrentView(prev => (prev === 'universal-recent' ? 'explorer' : 'universal-recent'));
+          lastAudioElement.pause();
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedProjectId]);
+  }, [currentView]);
 
   const handleSelectFolder = async () => {
     try {
@@ -374,6 +529,7 @@ function App() {
         });
 
         setFiles(results);
+        dashboardProjects.importProjects(buildImportedProjects(results));
         setAudioOverrides({});
       }
     } catch (error) {
@@ -630,14 +786,74 @@ function App() {
 
   return (
     <div className="app-container">
+      <div className="window-titlebar">
+        <div
+          className="window-titlebar-brand"
+          onMouseDown={(event) => {
+            if (event.button === 0) void getCurrentWindow().startDragging();
+          }}
+        >
+          <span className="window-titlebar-mark" aria-hidden="true">V</span>
+          <span>VERTION</span>
+        </div>
+        <div
+          className="window-titlebar-drag-space"
+          onMouseDown={(event) => {
+            if (event.button === 0) void getCurrentWindow().startDragging();
+          }}
+        />
+        <div className="window-controls">
+          <button
+            className="window-control"
+            type="button"
+            aria-label="Minimize window"
+            title="Minimize"
+            onClick={() => void getCurrentWindow().minimize()}
+          >
+            <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 8.5h8" /></svg>
+          </button>
+          <button
+            className="window-control"
+            type="button"
+            aria-label={isMaximized ? 'Restore window' : 'Maximize window'}
+            title={isMaximized ? 'Restore' : 'Maximize'}
+            onClick={() => void getCurrentWindow().toggleMaximize()}
+          >
+            {isMaximized
+              ? <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5h5v5" /><path d="M7.5 4.5v5h-5v-5z" /></svg>
+              : <svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2.5" y="2.5" width="7" height="7" /></svg>}
+          </button>
+          <button
+            className="window-control window-control-close"
+            type="button"
+            aria-label="Close window"
+            title="Close"
+            onClick={() => void getCurrentWindow().close()}
+          >
+            <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 3 6 6m0-6L3 9" /></svg>
+          </button>
+        </div>
+      </div>
       <div className="top-bar">
-        <span className="brand">VERTION // {currentView.toUpperCase().replace('-', ' ')}</span>
-        <span className="tab-hint">
-          {selectedProjectId ? 'Press [TAB] to toggle Project History' : 'Press [TAB] for Recent Bounces'}
-        </span>
+        <div className="top-bar-actions">
+          <button className={currentView === 'dashboard' ? 'top-nav-btn active' : 'top-nav-btn'} onClick={() => setCurrentView('dashboard')}>Dashboard</button>
+          <button className={currentView === 'explorer' ? 'top-nav-btn active' : 'top-nav-btn'} onClick={() => setCurrentView('explorer')}>Library</button>
+          <button className={currentView === 'project-history' ? 'top-nav-btn active' : 'top-nav-btn'} onClick={() => setCurrentView('project-history')}>History</button>
+        </div>
       </div>
 
       <div className="content">
+        {currentView === 'dashboard' && (
+          <ProjectDashboard
+            projects={dashboardProjects.projects}
+            onAddProject={dashboardProjects.addProject}
+            onUpdateProject={dashboardProjects.updateProject}
+            onUpdateStatus={dashboardProjects.updateStatus}
+            onRemoveProject={dashboardProjects.removeProject}
+            onSelectProject={(_project: Project) => undefined}
+          />
+        )}
+
         {currentView === 'explorer' && (
           <div className="view-section">
             <div className="header-row">
@@ -765,6 +981,8 @@ function App() {
                                     <InteractiveWaveform 
                                       audioPath={scored.file.path}
                                       active={true}
+                                      loadWaveform={isSelected && isExpanded}
+                                      preloadOnly={true}
                                       comments={trackComments[scored.file.path] || []}
                                       onAddComment={(ts, txt) => addCommentToTrack(scored.file.path, ts, txt)}
                                     />
@@ -772,6 +990,18 @@ function App() {
                                 ))}
                               </div>
                             )}
+
+                            {group.archivedAudioFiles.map((scored) => (
+                              <InteractiveWaveform
+                                key={`preload-${scored.file.path}`}
+                                audioPath={scored.file.path}
+                                active={false}
+                                loadWaveform={isSelected && isExpanded}
+                                preloadOnly={true}
+                                comments={[]}
+                                onAddComment={() => undefined}
+                              />
+                            ))}
                           </div>
                         )}
                       </div>
@@ -823,6 +1053,7 @@ function App() {
                         <InteractiveWaveform 
                           audioPath={scored.file.path}
                           active={true}
+                          loadWaveform={true}
                           comments={trackComments[scored.file.path] || []}
                           onAddComment={(ts, txt) => addCommentToTrack(scored.file.path, ts, txt)}
                         />
@@ -868,6 +1099,7 @@ function App() {
                             <InteractiveWaveform 
                               audioPath={scored.file.path}
                               active={false}
+                              loadWaveform={true}
                               comments={trackComments[scored.file.path] || []}
                               onAddComment={(ts, txt) => addCommentToTrack(scored.file.path, ts, txt)}
                             />

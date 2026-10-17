@@ -1,0 +1,40 @@
+/* Explorer styles define the scan results as compact, expandable project groups. */
+.file-list-container { margin-top: 8px; }
+.project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); gap: 16px; }
+.project-group-card { background: #18181c; border: 1px solid #2a2a30; border-radius: 8px; min-width: 0; overflow: hidden; transition: border-color 0.2s, background 0.2s; }
+.project-group-card:hover { border-color: #3a3a45; }
+.project-group-card.selected { border-color: #ff7700; background: #1a181a; }
+.project-group-card.expanded { grid-column: 1 / -1; }
+.group-header { padding: 14px 18px; display: flex; flex-direction: column; gap: 8px; user-select: none; }
+.group-header.clickable { cursor: pointer; }
+.header-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-width: 0; }
+.expand-icon { font-size: 11px; color: #888; }
+.group-header h3 { font-size: 15px; font-weight: 600; color: #fff; }
+.project-bpm { margin-left: 8px; color: #ffaa00; font-size: 11px; font-weight: 500; }
+.project-bpm-btn { margin-left: 8px; padding: 3px 8px; border: 1px solid rgba(255, 170, 0, 0.45); border-radius: 4px; background: rgba(255, 170, 0, 0.1); color: #ffaa00; font-size: 10px; font-weight: 700; cursor: pointer; }
+.project-bpm-btn:hover:not(:disabled) { background: rgba(255, 170, 0, 0.22); }
+.project-bpm-btn:disabled { opacity: 0.6; cursor: wait; }
+.header-details-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+.group-counts { color: #888; }
+.group-meta-summary { color: #aaa; }
+.group-body { background: #151518; border-top: 1px solid #2a2a30; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.sub-section { display: flex; flex-direction: column; gap: 8px; }
+.sub-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #888; }
+.file-item { display: flex; align-items: center; gap: 12px; background: #1c1c22; border: 1px solid #2d2d38; padding: 14px 16px; border-radius: 6px; transition: background 0.2s; }
+.file-item.stacked { flex-direction: column; align-items: stretch; gap: 12px; }
+.file-top-row { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; }
+.file-item:hover { background: #22222b; }
+.file-info-col { flex: 1; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.file-name { font-size: 13px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-meta { font-size: 11px; color: #888; overflow-wrap: anywhere; }
+.badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; letter-spacing: 0.5px; text-transform: uppercase; flex-shrink: 0; }
+.badge.project { background: rgba(255, 119, 0, 0.15); color: #ff7700; border: 1px solid rgba(255, 119, 0, 0.3); }
+.badge.auto { background: rgba(46, 213, 115, 0.15); color: #2ed573; border: 1px solid rgba(46, 213, 115, 0.3); }
+.badge.confirm { background: rgba(255, 165, 2, 0.15); color: #ffa502; border: 1px solid rgba(255, 165, 2, 0.3); }
+.badge.manual { background: rgba(112, 161, 255, 0.15); color: #70a1ff; border: 1px solid rgba(112, 161, 255, 0.3); }
+
+@media (max-width: 640px) {
+	.group-header, .group-body { padding-left: 12px; padding-right: 12px; }
+	.file-top-row { flex-wrap: wrap; }
+	.file-info-col { min-width: 0; flex-basis: calc(100% - 12px); }
+}

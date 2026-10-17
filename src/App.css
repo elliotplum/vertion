@@ -34,26 +34,133 @@ body, html {
   overflow: hidden;
 }
 
+.window-titlebar {
+  display: flex;
+  flex: 0 0 38px;
+  align-items: center;
+  height: 38px;
+  background: #151518;
+  border-bottom: 1px solid #29292f;
+  color: #d9d9dd;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  user-select: none;
+}
+
+.window-titlebar-brand {
+  display: flex;
+  flex: 0 0 auto;
+  height: 100%;
+  align-items: center;
+  gap: 9px;
+  padding: 0 16px;
+  cursor: default;
+}
+
+.window-titlebar-mark {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 1px solid rgba(255, 119, 0, 0.5);
+  border-radius: 5px;
+  color: #ff7700;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.window-titlebar-drag-space {
+  flex: 1;
+  align-self: stretch;
+}
+
+.window-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-self: stretch;
+}
+
+.window-control {
+  display: grid;
+  width: 46px;
+  height: 100%;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #a6a6ae;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.window-control:hover {
+  background: #29292f;
+  color: #fff;
+}
+
+.window-control svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.2;
+}
+
+.window-control-close:hover {
+  background: #d63838;
+  color: #fff;
+}
+
+.window-control:focus-visible {
+  outline: 1px solid #ff7700;
+  outline-offset: -3px;
+}
+
 /* Top Navigation Bar */
 .top-bar {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  padding: 12px 24px;
+  gap: 4px;
+  padding: 8px 24px 9px;
   background-color: #1a1a1e;
   border-bottom: 1px solid #2a2a30;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.5px;
+  text-align: center;
 }
 
 .brand {
   color: #ff7700;
 }
 
-.tab-hint {
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.top-nav-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
   color: #888;
-  font-weight: 400;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.top-nav-btn:hover,
+.top-nav-btn.active {
+  color: #fff;
+  border-color: #3a3a45;
+  background: #22222b;
 }
 
 /* Content Area */

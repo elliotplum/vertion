@@ -1,0 +1,31 @@
+/* Waveform styles stay together because the player is a self-contained visual tool. */
+.waveform-widget-container { display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 0; background: rgba(10, 10, 13, 0.85); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; padding: 10px 14px; }
+.waveform-wrapper-large { position: relative; display: flex; align-items: center; height: 64px; width: 100%; background: rgba(15, 15, 18, 0.95); border: 1px solid rgba(255, 119, 0, 0.25); border-radius: 4px; overflow: hidden; cursor: pointer; }
+.waveform-center-line { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(255, 119, 0, 0.3); z-index: 1; }
+.waveform-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: #ffffff; z-index: 4; box-shadow: 0 0 8px #ff7700; pointer-events: none; }
+.waveform-comment-marker { position: absolute; top: 0; bottom: 0; width: 3px; background: #ffaa00; z-index: 3; transform: translateX(-50%); border-radius: 1px; box-shadow: 0 0 6px #ff7700; }
+.waveform-bars-container { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 100%; gap: 0.5px; z-index: 2; padding: 0 3px; }
+.waveform-bar-column { flex: 1; display: flex; flex-direction: column; justify-content: center; height: 100%; align-items: stretch; }
+.waveform-bar-top { width: 100%; background: #ff7700; border-radius: 0.5px 0.5px 0 0; margin-bottom: 1px; opacity: 0.85; }
+.waveform-bar-bottom { width: 100%; background: #cc4400; border-radius: 0 0 0.5px 0.5px; opacity: 0.45; }
+.waveform-wrapper-large.archived .waveform-bar-top, .waveform-wrapper-large.archived .waveform-bar-bottom { background: #555; opacity: 0.3; }
+.waveform-footer-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.waveform-playback-controls { display: flex; align-items: center; gap: 8px; }
+.play-pause-btn { background: #ff7700; color: #fff; border: none; width: 26px; height: 26px; border-radius: 50%; font-size: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s, transform 0.1s; flex-shrink: 0; }
+.play-pause-btn:hover { background: #ff8822; transform: scale(1.05); }
+.current-time-indicator { font-size: 11px; font-family: monospace; color: #ffaa00; background: rgba(255, 119, 0, 0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255, 119, 0, 0.2); }
+.waveform-comment-form { display: flex; gap: 8px; flex: 1 1 240px; min-width: 0; max-width: 360px; }
+.waveform-comment-input { flex: 1; background: #141418; border: 1px solid #2a2a35; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 12px; outline: none; }
+.waveform-comment-input:focus { border-color: #ff7700; }
+.waveform-comment-btn { background: #ff7700; color: #fff; border: none; padding: 4px 12px; font-size: 12px; font-weight: 600; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
+.waveform-comment-btn:hover { background: #ff8822; }
+.comments-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.comment-pill { display: flex; align-items: center; gap: 6px; background: #1c1c24; border: 1px solid #2d2d3a; padding: 3px 8px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+.comment-pill:hover { border-color: #ff7700; background: #252530; }
+.comment-timestamp { color: #ffaa00; font-weight: 700; font-family: monospace; }
+.comment-text { color: #ddd; }
+
+@media (max-width: 640px) {
+	.waveform-widget-container { padding: 8px; }
+	.waveform-comment-form { flex-basis: 100%; max-width: none; }
+}

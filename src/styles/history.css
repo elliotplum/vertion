@@ -1,0 +1,15 @@
+/* History styles frame archive controls and empty states without affecting explorer layout. */
+.archive-dropdown-container { background: #16161a; border: 1px solid #2a2a30; border-radius: 8px; overflow: hidden; }
+.archive-dropdown-header { display: flex; align-items: center; gap: 10px; padding: 14px 18px; user-select: none; background: #18181c; transition: background 0.2s; }
+.archive-dropdown-header:hover { background: #1c1c22; }
+.archive-dropdown-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid #2a2a30; }
+.action-btn { padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; border: 1px solid transparent; outline: none; letter-spacing: 0.3px; flex-shrink: 0; }
+.action-btn.remove { background: rgba(255, 75, 75, 0.1); color: #ff6b6b; border-color: rgba(255, 75, 75, 0.3); }
+.action-btn.remove:hover { background: rgba(255, 75, 75, 0.25); border-color: #ff6b6b; color: #fff; box-shadow: 0 0 10px rgba(255, 75, 75, 0.2); }
+.action-btn.add { background: rgba(46, 213, 115, 0.1); color: #2ed573; border-color: rgba(46, 213, 115, 0.3); }
+.action-btn.add:hover { background: rgba(46, 213, 115, 0.25); border-color: #2ed573; color: #fff; box-shadow: 0 0 10px rgba(46, 213, 115, 0.2); }
+.project-history-content { display: flex; flex-direction: column; gap: 16px; }
+.history-summary-card { background: #18181c; border: 1px solid #2a2a30; padding: 16px; border-radius: 8px; display: flex; flex-direction: column; gap: 6px; }
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 64px 20px; text-align: center; color: #888; gap: 8px; background: #16161a; border: 1px dashed #2a2a30; border-radius: 8px; grid-column: 1 / -1; }
+.empty-text { color: #666; font-size: 13px; font-style: italic; }
+.hint-text { font-size: 12px; color: #666; }
